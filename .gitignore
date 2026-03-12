@@ -1,0 +1,12 @@
+# Mac
+.DS_Store
+
+# Windows
+Thumbs.db
+
+# Editor directories and files
+.idea
+.vscode
+
+# PHPUnit
+.phpunit.result.cache

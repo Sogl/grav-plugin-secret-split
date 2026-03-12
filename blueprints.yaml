@@ -1,0 +1,81 @@
+name: Secret Split
+slug: secret-split
+type: plugin
+version: 1.0.0
+testing: false
+icon: lock
+description: Store selected plugin secrets outside config YAML files
+author:
+  name: Artyom Mezin
+  email: artyom@mezin.me
+  url: https://mezin.me
+homepage: https://github.com/Sogl/grav-plugin-secret-split
+keywords: plugin, secrets, config, security
+bugs: https://github.com/Sogl/grav-plugin-secret-split/issues
+license: MIT
+form:
+  validation: loose
+  fields:
+    enabled:
+      type: toggle
+      label: PLUGIN_SECRET_SPLIT.ENABLED
+      highlight: 1
+      default: 1
+      options:
+        1: PLUGIN_SECRET_SPLIT.ENABLED_OPTION
+        0: PLUGIN_SECRET_SPLIT.DISABLED_OPTION
+      validate:
+        type: bool
+
+    debug_logging:
+      type: toggle
+      label: PLUGIN_SECRET_SPLIT.DEBUG_LOGGING
+      help: PLUGIN_SECRET_SPLIT.DEBUG_LOGGING_HELP
+      highlight: 0
+      default: 0
+      options:
+        1: PLUGIN_ADMIN.ENABLED
+        0: PLUGIN_ADMIN.DISABLED
+      validate:
+        type: bool
+
+    base_storage_file:
+      type: text
+      label: PLUGIN_SECRET_SPLIT.BASE_STORAGE_FILE
+      default: user://secrets.yaml
+
+    environment_storage_pattern:
+      type: text
+      label: PLUGIN_SECRET_SPLIT.ENVIRONMENT_STORAGE_PATTERN
+      default: user://secrets.%s.yaml
+
+    overview:
+      type: display
+      style: vertical
+      content: '<div id="secret-split-overview"></div>'
+
+    protected_fields:
+      type: list
+      label: PLUGIN_SECRET_SPLIT.PROTECTED_PLUGINS
+      style: vertical
+      btnLabel: PLUGIN_SECRET_SPLIT.ADD_PLUGIN
+      fields:
+        .plugin:
+          type: select
+          label: PLUGIN_SECRET_SPLIT.PLUGIN
+          size: medium
+          classes: secret-split-plugin-select
+          data-options@: '\Grav\Plugin\SecretSplitPlugin::getProtectedPluginOptions'
+        .fields:
+          type: list
+          label: PLUGIN_SECRET_SPLIT.PROTECTED_FIELDS
+          style: vertical
+          btnLabel: PLUGIN_SECRET_SPLIT.ADD_FIELD
+          selectunique@: '\Grav\Plugin\SecretSplitPlugin::getProtectedFieldOptions'
+          fields:
+            .field_key:
+              type: selectunique
+              label: PLUGIN_SECRET_SPLIT.FIELD
+              size: large
+              classes: secret-split-field-select
+              data-options@: '\Grav\Plugin\SecretSplitPlugin::getProtectedFieldOptions'

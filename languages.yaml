@@ -1,0 +1,97 @@
+en:
+  PLUGIN_SECRET_SPLIT:
+    DESCRIPTION: Store selected plugin secrets outside config YAML files
+    ENABLED: Enabled
+    ENABLED_OPTION: Enabled
+    DISABLED_OPTION: Disabled
+    DEBUG_LOGGING: Debug logging
+    DEBUG_LOGGING_HELP: Write Secret Split debug entries into the Grav log.
+    BASE_STORAGE_FILE: Base storage file
+    ENVIRONMENT_STORAGE_PATTERN: Environment storage pattern
+    PROTECTED_PLUGINS: Protected plugins
+    ADD_PLUGIN: Add plugin
+    PLUGIN: Plugin
+    PROTECTED_FIELDS: Protected fields
+    ADD_FIELD: Add field
+    FIELD: Field
+    LABEL_CONTEXT:
+      SITE: Site
+      ADMIN: Admin
+    STATUS:
+      TITLE: Status
+      STORED: Stored
+      PENDING: Pending
+      DUPLICATE: Duplicated
+      MISSING: Missing
+    SOURCE:
+      BASE_SECRETS: Secrets file
+      ENV_SECRETS: Environment secrets file
+      BASE_CONFIG: Config
+      ENV_CONFIG: Environment config
+      NOT_SET: Not set
+      DUPLICATE: "%tracked% config, %secrets% secrets file"
+    OVERVIEW:
+      STORED: Stored
+      PENDING: Pending
+      DUPLICATE: Duplicated
+      MISSING: Missing
+      MIGRATE_TO_FILE: Move to %file%
+      NOTE_TO_FILE: Pending and duplicate values will be moved into %file% and removed from config YAML after you save this form.
+      RETURN_TO_CONFIG: Move to config
+      RETURN_NOTE_FROM_FILE: Current values from %file% will be written back into config YAML and removed from %file% after you save this form.
+      SAVE_FIRST_NOTE: Save this form to apply the selected migrate or return action.
+    MESSAGES:
+      INVALID_TOKEN: Invalid security token.
+      MIGRATED: "Secret Split moved %migrated% pending fields%duplicates%."
+      RETURNED: "Secret Split moved %returned% stored values back into config."
+      ACTION_FAILED: "Secret Split action failed: %error%."
+      DUPLICATE_SUFFIX: " and %normalized% duplicated fields"
+
+ru:
+  PLUGIN_SECRET_SPLIT:
+    DESCRIPTION: Хранит выбранные секреты плагинов вне config YAML-файлов
+    ENABLED: Включен
+    ENABLED_OPTION: Включено
+    DISABLED_OPTION: Выключено
+    DEBUG_LOGGING: Отладочное логирование
+    DEBUG_LOGGING_HELP: Записывать отладочные сообщения Secret Split в лог Grav.
+    BASE_STORAGE_FILE: Базовый файл секретов
+    ENVIRONMENT_STORAGE_PATTERN: Шаблон env-файла секретов
+    PROTECTED_PLUGINS: Защищаемые плагины
+    ADD_PLUGIN: Добавить плагин
+    PLUGIN: Плагин
+    PROTECTED_FIELDS: Защищаемые поля
+    ADD_FIELD: Добавить поле
+    FIELD: Поле
+    LABEL_CONTEXT:
+      SITE: Site
+      ADMIN: Admin
+    STATUS:
+      TITLE: Статус
+      STORED: Хранится
+      PENDING: Ожидает
+      DUPLICATE: Дублируется
+      MISSING: Не задано
+    SOURCE:
+      BASE_SECRETS: Secrets-файл
+      ENV_SECRETS: Env secrets-файл
+      BASE_CONFIG: Config
+      ENV_CONFIG: Env config
+      NOT_SET: Не задано
+      DUPLICATE: "%tracked% config, %secrets% secrets-файл"
+    OVERVIEW:
+      STORED: Хранится
+      PENDING: Ожидает
+      DUPLICATE: Дублируется
+      MISSING: Не задано
+      MIGRATE_TO_FILE: Перенести в %file%
+      NOTE_TO_FILE: Значения со статусами «Ожидает» и «Дублируется» будут перенесены в %file% и удалены из config YAML после сохранения формы.
+      RETURN_TO_CONFIG: Перенести в config
+      RETURN_NOTE_FROM_FILE: Текущие значения из %file% будут записаны обратно в config YAML и удалены из %file% после сохранения формы.
+      SAVE_FIRST_NOTE: Сохраните форму, чтобы применить выбранную миграцию или возврат.
+    MESSAGES:
+      INVALID_TOKEN: Неверный токен безопасности.
+      MIGRATED: "Secret Split перенес %migrated% ожидающих полей%duplicates%."
+      RETURNED: "Secret Split перенес %returned% сохраненных значений обратно в config."
+      ACTION_FAILED: "Ошибка Secret Split: %error%."
+      DUPLICATE_SUFFIX: " и %normalized% дублирующихся"

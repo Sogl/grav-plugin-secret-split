@@ -1,0 +1,34 @@
+{
+    "name": "sogl/secret-split",
+    "type": "grav-plugin",
+    "description": "Store selected plugin secrets outside tracked YAML config",
+    "version": "1.0.0",
+    "keywords": [
+        "grav",
+        "plugin",
+        "secrets",
+        "config",
+        "security"
+    ],
+    "homepage": "https://github.com/Sogl/grav-plugin-secret-split",
+    "license": "MIT",
+    "authors": [
+        {
+            "name": "Artyom Mezin",
+            "email": "artyom@mezin.me",
+            "role": "Developer"
+        }
+    ],
+    "support": {
+        "issues": "https://github.com/Sogl/grav-plugin-secret-split/issues",
+        "source": "https://github.com/Sogl/grav-plugin-secret-split"
+    },
+    "autoload": {
+        "psr-4": {
+            "Grav\\Plugin\\": "classes/"
+        }
+    },
+    "require": {
+        "php": ">=8.0"
+    }
+}
