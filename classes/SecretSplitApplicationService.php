@@ -162,7 +162,8 @@ final class SecretSplitApplicationService
                 $this->paths->getEnvironmentStoragePath(),
                 $isPasswordKey,
                 $resolveStorageTarget,
-                $logDebug
+                $logDebug,
+                $scope
             );
 
             if ($trackedData !== $before) {

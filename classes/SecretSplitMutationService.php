@@ -56,7 +56,7 @@ final class SecretSplitMutationService
      * @param array<int,array{full_key:string,password:bool}> $definitions
      * @param array<string,mixed> $submittedData
      * @param callable(string):bool $isPasswordKey
-     * @param callable(string,array<string,mixed>,array<string,mixed>,bool):string $resolveStorageTarget
+     * @param callable(string,array<string,mixed>,array<string,mixed>,bool,string):string $resolveStorageTarget
      * @param callable(string,array<string,mixed>):void $logDebug
      */
     public function extractProtectedValuesForPlugin(
@@ -68,7 +68,8 @@ final class SecretSplitMutationService
         string $envPath,
         callable $isPasswordKey,
         callable $resolveStorageTarget,
-        callable $logDebug
+        callable $logDebug,
+        string $preferredScope = ''
     ): void {
         $protectedKeys = $this->getProtectedKeysForPlugin($pluginSlug, $definitions);
         if ($protectedKeys === []) {
@@ -118,7 +119,7 @@ final class SecretSplitMutationService
                 continue;
             }
 
-            $target = $resolveStorageTarget($fullKey, $baseSecrets, $envSecrets, $hasEnvStorage);
+            $target = $resolveStorageTarget($fullKey, $baseSecrets, $envSecrets, $hasEnvStorage, $preferredScope);
             if ($target === 'base') {
                 $this->setByDotPath($baseSecrets, $fullKey, $value);
                 $baseDirty = true;

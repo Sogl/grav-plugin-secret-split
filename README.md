@@ -93,10 +93,10 @@ Both paths are configurable via Secret Split plugin settings:
 
 Behavior is intentionally close to Grav config layering:
 
-- if no env secret file exists, writes go to base `user/secrets.yaml`
-- if env secret file exists, new secrets go to `user/secrets.<environment>.yaml`
-- if a protected key already exists in base storage, future writes keep it in base storage
-- if a protected key already exists in env storage, future writes keep it in env storage
+- values coming from base plugin config are written to base `user/secrets.yaml`
+- values coming from current env plugin config are written to `user/secrets.<environment>.yaml`
+- returning values back to config restores them into the matching base or current env config layer
+- secret files are created again automatically when the corresponding base or current env layer writes back into secrets
 - if Grav environment name is empty / undefined, env-specific storage is disabled instead of creating `secrets.unknown.yaml`
 
 Secret Split's own plugin configuration lives in:

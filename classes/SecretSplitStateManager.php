@@ -170,7 +170,13 @@ final class SecretSplitStateManager
                 continue;
             }
 
-            $target = $resolveStorageTarget($fullKey, $baseSecrets, $envSecrets, $hasEnvStorage);
+            $target = $resolveStorageTarget(
+                $fullKey,
+                $baseSecrets,
+                $envSecrets,
+                $hasEnvStorage,
+                $trackedInfo['scope']
+            );
             if ($target === 'base') {
                 $this->storage->setByDotPath($baseSecrets, $fullKey, $trackedValue);
                 $baseDirty = true;

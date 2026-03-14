@@ -362,7 +362,11 @@ class SecretSplitPlugin extends Plugin
             return;
         }
 
-        $this->extractProtectedValuesForPlugin($pluginSlug, $object);
+        $this->extractProtectedValuesForPlugin(
+            $pluginSlug,
+            $object,
+            $this->inferTrackedScopeFromConfigPath($filePath)
+        );
     }
 
     public function onAdminAfterSave(Event $event): void
@@ -514,7 +518,7 @@ class SecretSplitPlugin extends Plugin
         return null;
     }
 
-    private function extractProtectedValuesForPlugin(string $pluginSlug, Data|array &$source): void
+    private function extractProtectedValuesForPlugin(string $pluginSlug, Data|array &$source, string $preferredScope = ''): void
     {
         $this->getMutationService()->extractProtectedValuesForPlugin(
             $pluginSlug,
@@ -525,7 +529,8 @@ class SecretSplitPlugin extends Plugin
             $this->getEnvironmentStoragePath(),
             $this->callback('isPasswordKey'),
             $this->callback('resolveStorageTarget'),
-            $this->callback('logDebug')
+            $this->callback('logDebug'),
+            $preferredScope
         );
     }
 
@@ -542,8 +547,18 @@ class SecretSplitPlugin extends Plugin
         return $this->getContextService()->getProtectedDefinitions();
     }
 
-    private function resolveStorageTarget(string $fullKey, array $baseSecrets, array $envSecrets, bool $hasEnvStorage): string
+    private function resolveStorageTarget(
+        string $fullKey,
+        array $baseSecrets,
+        array $envSecrets,
+        bool $hasEnvStorage,
+        string $preferredScope = ''
+    ): string
     {
+        if ($preferredScope === 'env') {
+            return $this->getEnvironmentStoragePath() !== '' ? 'env' : 'base';
+        }
+
         if (!$hasEnvStorage) {
             return 'base';
         }
@@ -557,6 +572,15 @@ class SecretSplitPlugin extends Plugin
         }
 
         return 'env';
+    }
+
+    private function inferTrackedScopeFromConfigPath(string $filePath): string
+    {
+        if (preg_match('~(?:^|/)env/[^/]+/config/plugins/[^/]+\.yaml$~', $filePath)) {
+            return 'env';
+        }
+
+        return '';
     }
 
     private function getAdminFormNonceFromRequest(?array $post = null): array

@@ -457,8 +457,12 @@
       }
 
       let targetScope = 'base';
-      if (fact?.secret_exists) {
+      if (fact?.tracked_scope === 'env') {
+        targetScope = 'env';
+      } else if (fact?.secret_exists) {
         targetScope = fact.secret_scope === 'env' ? 'env' : 'base';
+      } else if (fact?.tracked_exists) {
+        targetScope = fact.tracked_scope === 'env' ? 'env' : 'base';
       } else if (DataStore.getNormalizedStates().meta.env_storage_available) {
         targetScope = 'env';
       }

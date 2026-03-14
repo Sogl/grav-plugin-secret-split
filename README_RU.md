@@ -93,10 +93,10 @@ user/secrets.<environment>.yaml
 
 Поведение специально приближено к Grav layering:
 
-- если env secret file не существует, запись идет в базовый `user/secrets.yaml`
-- если env secret file существует, новые секреты пишутся в `user/secrets.<environment>.yaml`
-- если защищённый ключ уже лежит в базовом storage, следующие записи остаются в базовом storage
-- если защищённый ключ уже лежит в env storage, следующие записи остаются в env storage
+- значения из базового plugin config пишутся в базовый `user/secrets.yaml`
+- значения из текущего env plugin config пишутся в `user/secrets.<environment>.yaml`
+- возврат значений обратно в config восстанавливает их в соответствующий base или текущий env config layer
+- secret-файлы автоматически создаются заново, когда соответствующий base или текущий env layer снова пишет секреты
 - если имя Grav environment пустое или не определено, env-specific storage отключается вместо создания `secrets.unknown.yaml`
 
 Конфиг самого Secret Split лежит в:
