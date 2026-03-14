@@ -1,7 +1,7 @@
 name: Secret Split
 slug: secret-split
 type: plugin
-version: 1.0.1
+version: 1.0.2
 testing: false
 icon: lock
 description: Store selected plugin secrets outside config YAML files

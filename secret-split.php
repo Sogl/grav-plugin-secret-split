@@ -25,6 +25,8 @@ class SecretSplitPlugin extends Plugin
 
     private ?string $pendingSecretSplitAction = null;
 
+    private static bool $earlyCatalogDependenciesLoaded = false;
+
     public function autoload(): ClassLoader
     {
         return require __DIR__ . '/vendor/autoload.php';
@@ -33,6 +35,18 @@ class SecretSplitPlugin extends Plugin
     private function callback(string $method): Closure
     {
         return Closure::fromCallable([$this, $method]);
+    }
+
+    private static function ensureEarlyCatalogDependenciesLoaded(): void
+    {
+        if (self::$earlyCatalogDependenciesLoaded) {
+            return;
+        }
+
+        require_once __DIR__ . '/classes/SecretSplitCatalogBuilder.php';
+        require_once __DIR__ . '/classes/SecretSplitI18n.php';
+
+        self::$earlyCatalogDependenciesLoaded = true;
     }
 
     private function getServices(): SecretSplitServices
@@ -670,6 +684,8 @@ class SecretSplitPlugin extends Plugin
         if (self::$fieldCatalog !== null) {
             return self::$fieldCatalog;
         }
+
+        self::ensureEarlyCatalogDependenciesLoaded();
 
         $pluginRoot = USER_DIR . 'plugins';
         $catalog = [

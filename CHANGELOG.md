@@ -1,3 +1,9 @@
+# v1.0.2
+## 03/14/2026
+
+1. [](#improved)
+    * Restore early blueprint/bootstrap loading for Secret Split so GPM and admin metadata paths resolve normally.
+
 # v1.0.1
 ## 03/14/2026
 
