@@ -125,6 +125,26 @@ final class SecretSplitStateManager
         callable $resolveStorageTarget,
         callable $logDebug
     ): array {
+        return $this->storage->withStorageLock($baseSecretsPath, fn() => $this->doMigrateProtectedValues(
+            $definitions,
+            $baseSecretsPath,
+            $envSecretsPath,
+            $resolveStorageTarget,
+            $logDebug
+        ));
+    }
+
+    /**
+     * @param list<array{full_key:string,password:bool}> $definitions
+     * @return array{migrated:int,normalized:int,missing:int}
+     */
+    private function doMigrateProtectedValues(
+        array $definitions,
+        string $baseSecretsPath,
+        string $envSecretsPath,
+        callable $resolveStorageTarget,
+        callable $logDebug
+    ): array {
         $hasEnvStorage = $envSecretsPath !== '' && is_file($envSecretsPath);
         $baseSecrets = $this->loadSecretsLayer($baseSecretsPath);
         $envSecrets = $this->loadSecretsLayer($envSecretsPath);
@@ -224,6 +244,22 @@ final class SecretSplitStateManager
         string $baseSecretsPath,
         string $envSecretsPath
     ): array {
+        return $this->storage->withStorageLock($baseSecretsPath, fn() => $this->doReturnProtectedValuesToTrackedConfig(
+            $definitions,
+            $baseSecretsPath,
+            $envSecretsPath
+        ));
+    }
+
+    /**
+     * @param list<array{full_key:string,password:bool}> $definitions
+     * @return array{returned:int,missing:int}
+     */
+    private function doReturnProtectedValuesToTrackedConfig(
+        array $definitions,
+        string $baseSecretsPath,
+        string $envSecretsPath
+    ): array {
         $baseSecrets = $this->loadSecretsLayer($baseSecretsPath);
         $envSecrets = $this->loadSecretsLayer($envSecretsPath);
         $trackedLayers = [];
@@ -269,13 +305,10 @@ final class SecretSplitStateManager
             $summary['returned']++;
         }
 
-        if ($baseDirty) {
-            $this->storage->saveSecretsYamlFile($baseSecretsPath, $baseSecrets);
-        }
-        if ($envDirty) {
-            $this->storage->saveSecretsYamlFile($envSecretsPath, $envSecrets);
-        }
-
+        // Write tracked configs FIRST: secrets are only deleted once their
+        // values safely exist elsewhere. A tracked-write failure must leave
+        // the secrets untouched (a duplicate is recoverable, a lost secret
+        // is not).
         foreach ($trackedLayers as $pluginSlug => $layers) {
             foreach (['base', 'env'] as $scope) {
                 if (!$dirtyTracked[$pluginSlug][$scope]) {
@@ -283,6 +316,13 @@ final class SecretSplitStateManager
                 }
                 $this->storage->saveTrackedPluginConfig($pluginSlug, $scope, $layers[$scope]);
             }
+        }
+
+        if ($baseDirty) {
+            $this->storage->saveSecretsYamlFile($baseSecretsPath, $baseSecrets);
+        }
+        if ($envDirty) {
+            $this->storage->saveSecretsYamlFile($envSecretsPath, $envSecrets);
         }
 
         return $summary;

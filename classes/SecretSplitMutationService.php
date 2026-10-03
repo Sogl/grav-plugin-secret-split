@@ -33,21 +33,28 @@ final class SecretSplitMutationService
         return array_values(array_unique($keys));
     }
 
-    public function applySecretOverlay(object $config, string $baseSecretsPath, string $envSecretsPath): void
+    /**
+     * Overlays only currently protected leaf values, atomically — protected
+     * fields are the authority: stale or manually added keys in the secrets
+     * files are never promoted into live config, and an array-valued secret
+     * replaces the tracked value wholesale instead of being index-merged.
+     *
+     * @param array<int,array{full_key:string,password:bool}> $definitions
+     */
+    public function applySecretOverlay(object $config, string $baseSecretsPath, string $envSecretsPath, array $definitions): void
     {
         $baseSecrets = $this->loadYamlFile($baseSecretsPath);
         $envSecrets = $this->loadYamlFile($envSecretsPath);
 
-        foreach ([$baseSecrets, $envSecrets] as $overrides) {
-            foreach ($overrides as $key => $value) {
-                if (!is_array($value)) {
-                    $config->set($key, $value);
-                    continue;
-                }
+        foreach ($definitions as $definition) {
+            $fullKey = $definition['full_key'];
+            if ($this->hasByDotPath($envSecrets, $fullKey)) {
+                $config->set($fullKey, $this->getByDotPath($envSecrets, $fullKey));
+                continue;
+            }
 
-                $current = $config->get($key);
-                $current = is_array($current) ? $current : [];
-                $config->set($key, array_replace_recursive($current, $value));
+            if ($this->hasByDotPath($baseSecrets, $fullKey)) {
+                $config->set($fullKey, $this->getByDotPath($baseSecrets, $fullKey));
             }
         }
     }
@@ -58,6 +65,10 @@ final class SecretSplitMutationService
      * @param callable(string):bool $isPasswordKey
      * @param callable(string,array<string,mixed>,array<string,mixed>,bool,string):string $resolveStorageTarget
      * @param callable(string,array<string,mixed>):void $logDebug
+     * @param array<string,mixed>|null $previousTracked the target YAML file's
+     *        pre-save disk contents (api saves only — lets us tell a real edit
+     *        apart from a round-tripped value the form never actually showed)
+     * @param callable(string):array{has:bool,value:mixed}|null $getFieldDefault
      */
     public function extractProtectedValuesForPlugin(
         string $pluginSlug,
@@ -69,13 +80,73 @@ final class SecretSplitMutationService
         callable $isPasswordKey,
         callable $resolveStorageTarget,
         callable $logDebug,
-        string $preferredScope = ''
+        string $preferredScope = '',
+        bool $isApiRequest = false,
+        ?array $previousTracked = null,
+        ?callable $getFieldDefault = null
     ): void {
         $protectedKeys = $this->getProtectedKeysForPlugin($pluginSlug, $definitions);
         if ($protectedKeys === []) {
             return;
         }
 
+        $this->yaml->withStorageLock($basePath, function () use (
+            $pluginSlug,
+            &$source,
+            $submittedData,
+            $basePath,
+            $envPath,
+            $protectedKeys,
+            $isPasswordKey,
+            $resolveStorageTarget,
+            $logDebug,
+            $preferredScope,
+            $isApiRequest,
+            $previousTracked,
+            $getFieldDefault
+        ): void {
+            $this->doExtractProtectedValuesForPlugin(
+                $pluginSlug,
+                $source,
+                $submittedData,
+                $basePath,
+                $envPath,
+                $protectedKeys,
+                $isPasswordKey,
+                $resolveStorageTarget,
+                $logDebug,
+                $preferredScope,
+                $isApiRequest,
+                $previousTracked,
+                $getFieldDefault
+            );
+        });
+    }
+
+    /**
+     * @param array<int,string> $protectedKeys
+     * @param array<string,mixed> $submittedData
+     * @param callable(string):bool $isPasswordKey
+     * @param callable(string,array<string,mixed>,array<string,mixed>,bool,string):string $resolveStorageTarget
+     * @param callable(string,array<string,mixed>):void $logDebug
+     * @param array<string,mixed>|null $previousTracked
+     * @param callable(string):array{has:bool,value:mixed}|null $getFieldDefault
+     */
+    private function doExtractProtectedValuesForPlugin(
+        string $pluginSlug,
+        Data|array &$source,
+        array $submittedData,
+        string $basePath,
+        string $envPath,
+        array $protectedKeys,
+        callable $isPasswordKey,
+        callable $resolveStorageTarget,
+        callable $logDebug,
+        string $preferredScope,
+        bool $isApiRequest,
+        ?array $previousTracked,
+        ?callable $getFieldDefault
+    ): void {
         $hasEnvStorage = $envPath !== '' && is_file($envPath);
         $baseSecrets = $this->loadYamlFile($basePath);
         $envSecrets = $this->loadYamlFile($envPath);
@@ -85,6 +156,22 @@ final class SecretSplitMutationService
         foreach ($protectedKeys as $relativeKey) {
             $fullKey = 'plugins.' . $pluginSlug . '.' . $relativeKey;
             $submittedEmpty = $this->wasSubmittedValueCleared($submittedData, $relativeKey);
+
+            // Admin Next's config form is rendered from on-disk YAML, not the
+            // overlaid runtime config — a stored secret is invisible to it, so
+            // an empty, unchanged, or blueprint-default round-trip is NOT user
+            // intent and must not delete or overwrite the stored value.
+            if ($isApiRequest
+                && ($this->hasByDotPath($baseSecrets, $fullKey) || $this->hasByDotPath($envSecrets, $fullKey))
+                && $this->isApiFormEcho($relativeKey, $fullKey, $source, $submittedData, $previousTracked, $getFieldDefault)
+            ) {
+                $this->removeValue($source, $relativeKey);
+                $logDebug('protected key preserved on api save (unchanged echo)', [
+                    'plugin' => $pluginSlug,
+                    'key' => $fullKey,
+                ]);
+                continue;
+            }
 
             if ($submittedEmpty && !$isPasswordKey($fullKey)) {
                 $this->deleteProtectedValue($fullKey, $baseSecrets, $envSecrets, $baseDirty, $envDirty);
@@ -151,6 +238,46 @@ final class SecretSplitMutationService
                 'plugin' => $pluginSlug,
             ]);
         }
+    }
+
+    /**
+     * True when the submitted value merely echoes what Admin Next rendered —
+     * i.e. the admin could not have edited the secret because the form never
+     * contained it: no submitted key, an empty value, the unchanged previous
+     * tracked value, or the blueprint default.
+     *
+     * @param array<string,mixed>|null $previousTracked
+     * @param callable(string):array{has:bool,value:mixed}|null $getFieldDefault
+     */
+    private function isApiFormEcho(
+        string $relativeKey,
+        string $fullKey,
+        Data|array $source,
+        array $submittedData,
+        ?array $previousTracked,
+        ?callable $getFieldDefault
+    ): bool {
+        if (!$this->hasByDotPath($submittedData, $relativeKey)) {
+            return true;
+        }
+
+        $value = $this->readValue($source, $relativeKey);
+        if ($value === '' || $value === null) {
+            return true;
+        }
+
+        $hadTracked = is_array($previousTracked) && $this->hasByDotPath($previousTracked, $relativeKey);
+        if ($hadTracked) {
+            return $value === $this->getByDotPath($previousTracked, $relativeKey);
+        }
+
+        if ($getFieldDefault !== null) {
+            $default = $getFieldDefault($fullKey);
+
+            return $default['has'] && $value === $default['value'];
+        }
+
+        return false;
     }
 
     private function deleteProtectedValue(string $fullKey, array &$baseSecrets, array &$envSecrets, bool &$baseDirty, bool &$envDirty): void

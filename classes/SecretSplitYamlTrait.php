@@ -58,6 +58,39 @@ trait SecretSplitYamlTrait
         }
 
         $this->saveYamlFile($path, $data);
+
+        // Credentials must not merely inherit the process umask.
+        @chmod($path, 0600);
+    }
+
+    /**
+     * Serializes Secret Split multi-file read-modify-write sequences against
+     * concurrent processes. Best effort: when the lock file can't be opened
+     * the callable still runs rather than breaking mutations entirely.
+     */
+    private function withStorageLock(string $anchorPath, callable $fn): mixed
+    {
+        $handle = null;
+        $directory = $anchorPath !== '' ? dirname($anchorPath) : '';
+        if ($directory !== '' && is_dir($directory)) {
+            $candidate = @fopen($directory . '/.secret-split.lock', 'c');
+            if (is_resource($candidate)) {
+                if (flock($candidate, LOCK_EX)) {
+                    $handle = $candidate;
+                } else {
+                    fclose($candidate);
+                }
+            }
+        }
+
+        try {
+            return $fn();
+        } finally {
+            if (is_resource($handle)) {
+                flock($handle, LOCK_UN);
+                fclose($handle);
+            }
+        }
     }
 
     private function hasByDotPath(array $data, string $path): bool

@@ -199,7 +199,10 @@ final class SecretSplitCatalogBuilder
                 continue;
             }
 
-            if ($type === '' || in_array($type, ['display', 'spacer', 'columns', 'column', 'tabs', 'list', 'array', 'value', 'ignore'], true)) {
+            // 'list' stays out — member paths (items.*.token) are dynamic and
+            // cannot be addressed statically; a plain 'array' leaf stores an
+            // arbitrary YAML value and is a perfectly protectable secret.
+            if ($type === '' || in_array($type, ['display', 'spacer', 'columns', 'column', 'tabs', 'list', 'value', 'ignore'], true)) {
                 continue;
             }
 
@@ -211,10 +214,15 @@ final class SecretSplitCatalogBuilder
                 $fullLabel = $fieldKey;
             }
 
-            $catalog[$fullKey] = [
+            $fieldInfo = [
                 'label' => $fullLabel,
                 'type' => $type,
             ];
+            if (array_key_exists('default', $definition)) {
+                $fieldInfo['default'] = $definition['default'];
+            }
+
+            $catalog[$fullKey] = $fieldInfo;
         }
     }
 

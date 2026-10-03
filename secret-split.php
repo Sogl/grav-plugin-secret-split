@@ -52,27 +52,8 @@ class SecretSplitPlugin extends Plugin
     private function getServices(): SecretSplitServices
     {
         if ($this->services === null) {
-            $this->services = new SecretSplitServices(
-                $this->grav,
-                USER_DIR,
-                $this->callback('logDebug'),
-                Closure::fromCallable([self::class, 'getProtectedFieldCatalog']),
-                function (string $pluginSlug): array {
-                    $pluginDir = USER_DIR . 'plugins/' . $pluginSlug;
-                    if (!is_dir($pluginDir)) {
-                        return [];
-                    }
-
-                    $prefix = 'plugins.' . $pluginSlug . '.';
-
-                    return array_values(array_map(
-                        static fn(string $fullKey): string => str_starts_with($fullKey, $prefix)
-                            ? substr($fullKey, strlen($prefix))
-                            : $fullKey,
-                        array_keys($this->getServices()->catalogBuilder()->collectConfigFieldsForPlugin($pluginDir, $pluginSlug))
-                    ));
-                }
-            );
+            $this->services = SecretSplitServices::create($this->grav, $this->callback('logDebug'));
+            $this->services->applyRequestEnvironment();
         }
 
         return $this->services;
@@ -117,6 +98,122 @@ class SecretSplitPlugin extends Plugin
     {
         return [
             'onPluginsInitialized' => [['onPluginsInitialized', 2000]],
+            // Grav 2 / admin2 surface — these events only exist where the api
+            // plugin runs, so a 1.7 install simply never fires them.
+            'onApiRegisterRoutes' => ['onApiRegisterRoutes', 0],
+            'onApiSidebarItems' => ['onApiSidebarItems', 0],
+            'onApiPluginPageInfo' => ['onApiPluginPageInfo', 0],
+            'onApiBlueprintResolved' => ['onApiBlueprintResolved', 0],
+        ];
+    }
+
+    /**
+     * Swap the `.field_key` select for our web-component field — admin-next
+     * only, so admin1 keeps its plain `select`. The component filters options
+     * by the row's chosen plugin, reproducing the admin1 JS behaviour.
+     */
+    public function onApiBlueprintResolved(Event $event): void
+    {
+        $fields = $event['fields'] ?? null;
+        if (!is_array($fields)) {
+            return;
+        }
+        $this->swapFieldSelectType($fields);
+        $event['fields'] = $fields;
+    }
+
+    /**
+     * @param array<string,mixed> $fields
+     */
+    private function swapFieldSelectType(array &$fields): void
+    {
+        foreach ($fields as &$field) {
+            if (!is_array($field)) {
+                continue;
+            }
+            if (($field['type'] ?? '') === 'select'
+                && str_contains((string) ($field['classes'] ?? ''), 'secret-split-field-select')
+            ) {
+                $field['type'] = 'secret-split-field';
+            }
+            // The admin1 overview placeholder renders nothing under admin-next
+            // (display fields drop raw HTML), so swap it for the custom field
+            // component that paints the status tiles + actions in the same spot.
+            if (($field['type'] ?? '') === 'display'
+                && str_contains((string) ($field['content'] ?? ''), 'secret-split-overview')
+            ) {
+                $field['type'] = 'secret-split-overview';
+                unset($field['content']);
+            }
+            if (isset($field['fields']) && is_array($field['fields'])) {
+                $this->swapFieldSelectType($field['fields']);
+            }
+        }
+        unset($field);
+    }
+
+    /**
+     * Admin Next API endpoints — the SPA page uses them for state, marking
+     * persistence and the migrate/return actions that lived behind admin1
+     * task URLs.
+     */
+    public function onApiRegisterRoutes(Event $event): void
+    {
+        $routes = $event['routes'];
+        $controller = \Grav\Plugin\SecretSplit\Api\SecretSplitApiController::class;
+
+        $routes->get('/secret-split/state', [$controller, 'state']);
+        $routes->post('/secret-split/fields', [$controller, 'saveFields']);
+        $routes->post('/secret-split/migrate', [$controller, 'migrate']);
+        $routes->post('/secret-split/return', [$controller, 'returnSecrets']);
+    }
+
+    /**
+     * Sidebar entry — an optional convenience shortcut that lands on the
+     * plugin's settings form. Toggleable via the admin_sidebar_item option;
+     * admin1 never had one either, so disabling is a clean 1.7-parity mode.
+     */
+    public function onApiSidebarItems(Event $event): void
+    {
+        $config = $this->grav['config'] ?? null;
+        if ($config && !$config->get('plugins.secret-split.admin_sidebar_item', true)) {
+            return;
+        }
+
+        $items = $event['items'] ?? [];
+        $items[] = [
+            'id'        => 'secret-split',
+            'plugin'    => 'secret-split',
+            'label'     => 'Secret Split',
+            'icon'      => 'fa-lock',
+            'route'     => '/plugins/secret-split',
+            'priority'  => 0,
+            'authorize' => 'admin.super',
+        ];
+        $event['items'] = $items;
+    }
+
+    /**
+     * Page definition — blueprint mode bound to the same config endpoints the
+     * settings page uses, so the legacy /plugin/secret-split URL renders the
+     * SAME form with the same data instead of a 404 or an empty shell. The
+     * overview and field-status pieces live inside that form as custom field
+     * types, exactly where admin1 injected them.
+     */
+    public function onApiPluginPageInfo(Event $event): void
+    {
+        if ($event['plugin'] !== 'secret-split') {
+            return;
+        }
+        $event['definition'] = [
+            'id'            => 'secret-split',
+            'plugin'        => 'secret-split',
+            'title'         => 'Secret Split',
+            'icon'          => 'fa-lock',
+            'page_type'     => 'blueprint',
+            'blueprint'     => 'secret-split',
+            'data_endpoint' => '/config/plugins/secret-split',
+            'save_endpoint' => '/config/plugins/secret-split',
         ];
     }
 
@@ -128,6 +225,10 @@ class SecretSplitPlugin extends Plugin
         ]);
 
         $this->applySecretOverlay();
+
+        if ($this->getAdminFlow()->isApiRequest()) {
+            $this->registerApiSaveWatchers();
+        }
 
         $this->logDebug('enabling admin hooks');
         $this->enable([
@@ -379,7 +480,8 @@ class SecretSplitPlugin extends Plugin
         $this->extractProtectedValuesForPlugin(
             $pluginSlug,
             $object,
-            $this->inferTrackedScopeFromConfigPath($filePath)
+            $this->inferTrackedScopeFromConfigPath($filePath),
+            $filePath
         );
     }
 
@@ -463,7 +565,8 @@ class SecretSplitPlugin extends Plugin
         $this->getMutationService()->applySecretOverlay(
             $config,
             $this->getBaseStoragePath(),
-            $this->getEnvironmentStoragePath()
+            $this->getEnvironmentStoragePath(),
+            $this->getProtectedDefinitions()
         );
     }
 
@@ -532,8 +635,15 @@ class SecretSplitPlugin extends Plugin
         return null;
     }
 
-    private function extractProtectedValuesForPlugin(string $pluginSlug, Data|array &$source, string $preferredScope = ''): void
+    private function extractProtectedValuesForPlugin(string $pluginSlug, Data|array &$source, string $preferredScope = '', string $trackedFilePath = ''): void
     {
+        $isApiRequest = $this->getAdminFlow()->isApiRequest();
+        // onAdminSave fires before the api writes the file, so the target
+        // still holds the pre-save tracked values Admin Next rendered.
+        $previousTracked = $isApiRequest && $trackedFilePath !== '' && is_file($trackedFilePath)
+            ? $this->getYamlHelper()->loadYamlFile($trackedFilePath)
+            : null;
+
         $this->getMutationService()->extractProtectedValuesForPlugin(
             $pluginSlug,
             $source,
@@ -544,8 +654,16 @@ class SecretSplitPlugin extends Plugin
             $this->callback('isPasswordKey'),
             $this->callback('resolveStorageTarget'),
             $this->callback('logDebug'),
-            $preferredScope
+            $preferredScope,
+            $isApiRequest,
+            $previousTracked,
+            $this->callback('getCatalogFieldDefaultInfo')
         );
+    }
+
+    private function getCatalogFieldDefaultInfo(string $fullKey): array
+    {
+        return $this->getContextService()->getCatalogFieldDefaultInfo($fullKey);
     }
 
     private function isPasswordKey(string $fullKey): bool
@@ -569,23 +687,13 @@ class SecretSplitPlugin extends Plugin
         string $preferredScope = ''
     ): string
     {
-        if ($preferredScope === 'env') {
-            return $this->getEnvironmentStoragePath() !== '' ? 'env' : 'base';
-        }
-
-        if (!$hasEnvStorage) {
-            return 'base';
-        }
-
-        if ($this->getYamlHelper()->hasByDotPath($envSecrets, $fullKey)) {
-            return 'env';
-        }
-
-        if ($this->getYamlHelper()->hasByDotPath($baseSecrets, $fullKey)) {
-            return 'base';
-        }
-
-        return 'env';
+        return $this->getServices()->resolveStorageTarget(
+            $fullKey,
+            $baseSecrets,
+            $envSecrets,
+            $hasEnvStorage,
+            $preferredScope
+        );
     }
 
     private function inferTrackedScopeFromConfigPath(string $filePath): string
@@ -677,7 +785,7 @@ class SecretSplitPlugin extends Plugin
     }
 
     /**
-     * @return array{plugins: array<string,string>, fields: array<string,string>, fieldPlugins: array<string,string>, passwordFields: string[]}
+     * @return array{plugins: array<string,string>, fields: array<string,string>, fieldPlugins: array<string,string>, passwordFields: string[], defaults: array<string,mixed>}
      */
     public static function getProtectedFieldCatalog(): array
     {
@@ -716,6 +824,9 @@ class SecretSplitPlugin extends Plugin
                 $catalog['fieldPlugins'][$fullKey] = $pluginSlug;
                 if ($fieldInfo['type'] === 'password') {
                     $catalog['passwordFields'][] = $fullKey;
+                }
+                if (array_key_exists('default', $fieldInfo)) {
+                    $catalog['defaults'][$fullKey] = $fieldInfo['default'];
                 }
             }
         }
@@ -851,6 +962,27 @@ class SecretSplitPlugin extends Plugin
         }
 
         return $this->jsTranslations;
+    }
+
+    /**
+     * Plugin-specific admin-next endpoints (e.g. algolia-pro's
+     * PATCH /api/v1/algolia-pro/data) write their own config YAML without
+     * ever firing onAdminSave, so per-form interception cannot see them. The
+     * snapshot + shutdown migration the Flex path uses is pipeline-agnostic:
+     * on any api request we watch every protected plugin's tracked config
+     * and extract whatever actually changed by request end.
+     */
+    private function registerApiSaveWatchers(): void
+    {
+        $slugs = [];
+        foreach ($this->getProtectedDefinitions() as $def) {
+            if (preg_match('~^plugins\.([^.]+)\.~', (string) ($def['full_key'] ?? ''), $m)) {
+                $slugs[$m[1]] = true;
+            }
+        }
+        foreach (array_keys($slugs) as $slug) {
+            $this->registerFlexPostSaveMigration($slug);
+        }
     }
 
     private function registerFlexPostSaveMigration(string $pluginSlug): void

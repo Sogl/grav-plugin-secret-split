@@ -12,14 +12,30 @@ final class SecretSplitI18n
     /** @var array<string,string>|null */
     private ?array $jsTranslations = null;
 
+    /** @var string[]|null */
+    private ?array $preferredLanguagesOverride = null;
+
     public function __construct(
         private readonly Grav $grav,
         private readonly SecretSplitPathResolver $paths
     ) {}
 
+    /**
+     * Pin this service's translation chain — the api controller primes it with
+     * the admin user's `adminLanguage` preference, which lives in site
+     * preferences, not in the legacy `user.language` field.
+     *
+     * @param string[] $languages
+     */
+    public function setPreferredLanguages(array $languages): void
+    {
+        $this->preferredLanguagesOverride = $languages;
+        $this->jsTranslations = null;
+    }
+
     public function translate(string $key, array $replacements = []): string
     {
-        $text = self::translateStatic($key, $this->getPreferredTranslationLanguages());
+        $text = self::translateStatic($key, $this->preferredLanguagesOverride ?? $this->getPreferredTranslationLanguages());
 
         if ($replacements !== []) {
             $text = strtr($text, $replacements);

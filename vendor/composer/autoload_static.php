@@ -22,18 +22,6 @@ class ComposerStaticInite96dac485180cbdfb56ad8af0ef05182
 
     public static $classMap = array (
         'Composer\\InstalledVersions' => __DIR__ . '/..' . '/composer/InstalledVersions.php',
-        'Grav\\Plugin\\SecretSplitAdminFlow' => __DIR__ . '/../..' . '/classes/SecretSplitAdminFlow.php',
-        'Grav\\Plugin\\SecretSplitApplicationService' => __DIR__ . '/../..' . '/classes/SecretSplitApplicationService.php',
-        'Grav\\Plugin\\SecretSplitCatalogBuilder' => __DIR__ . '/../..' . '/classes/SecretSplitCatalogBuilder.php',
-        'Grav\\Plugin\\SecretSplitContext' => __DIR__ . '/../..' . '/classes/SecretSplitContext.php',
-        'Grav\\Plugin\\SecretSplitI18n' => __DIR__ . '/../..' . '/classes/SecretSplitI18n.php',
-        'Grav\\Plugin\\SecretSplitMutationService' => __DIR__ . '/../..' . '/classes/SecretSplitMutationService.php',
-        'Grav\\Plugin\\SecretSplitPathResolver' => __DIR__ . '/../..' . '/classes/SecretSplitPathResolver.php',
-        'Grav\\Plugin\\SecretSplitServices' => __DIR__ . '/../..' . '/classes/SecretSplitServices.php',
-        'Grav\\Plugin\\SecretSplitStateManager' => __DIR__ . '/../..' . '/classes/SecretSplitStateManager.php',
-        'Grav\\Plugin\\SecretSplitStorageManager' => __DIR__ . '/../..' . '/classes/SecretSplitStorageManager.php',
-        'Grav\\Plugin\\SecretSplitYamlHelper' => __DIR__ . '/../..' . '/classes/SecretSplitYamlHelper.php',
-        'Grav\\Plugin\\SecretSplitYamlTrait' => __DIR__ . '/../..' . '/classes/SecretSplitYamlTrait.php',
     );
 
     public static function getInitializer(ClassLoader $loader)

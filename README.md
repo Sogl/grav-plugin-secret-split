@@ -46,9 +46,22 @@ These are valid approaches, but they also have tradeoffs:
 
 `Secret Split` fills that niche: selected plugin secrets are moved out of tracked plugin config YAML into private storage files, while normal Admin editing and save continue to work.
 
+## Requirements
+
+- Grav 1.7.x or 2.x
+- PHP 8.1+
+- On Grav 2, the Admin Next UI also requires the `api` plugin — the custom field types and the state/migrate/return endpoints are served through it. The storage core works regardless.
+- The plugin runs the same storage, save-interception, and migration logic on both generations; only the admin UI differs (see below)
+
 ## Installation
 
-### Manual Installation (current)
+### GPM
+
+```bash
+bin/gpm install secret-split
+```
+
+### Manual
 
 1. Download the ZIP archive of this repository.
 2. Unpack it into `user/plugins/`.
@@ -56,14 +69,6 @@ These are valid approaches, but they also have tradeoffs:
 
 ```text
 user/plugins/secret-split
-```
-
-### Future GPM Installation
-
-When the plugin is published in the official Grav plugin repository, it can be installed with:
-
-```bash
-bin/gpm install secret-split
 ```
 
 ## Storage Model
@@ -119,6 +124,10 @@ The plugin configuration lets you define protected fields grouped by plugin:
 Field labels are collected from plugin blueprints and shown using their admin-facing names.
 As soon as a field is selected, the Admin UI also shows its current status and where the value is currently stored.
 
+On Grav 2 (Admin Next) the same marking lives inside the plugin's own settings form: the `protected_fields` list uses the custom `secret-split-field` type (field select filtered by the row's plugin plus a live status chip), and the `secret-split-overview` field renders the status tiles and the **Move to secrets** / **Move to config** actions in the same place admin1 injected them. An optional **Sidebar menu entry** option (`admin_sidebar_item`, enabled by default) puts a Secret Split shortcut in the left admin sidebar that links straight to this settings page; disable it to keep only Plugins → Secret Split.
+
+When the operator picks an environment in the Admin Next header switcher, Secret Split scopes statuses, saves, and file writes to that environment (base/env `secrets` files and the matching `env/<name>/config/plugins/*.yaml`) — mirroring the Grav 1.7 per-hostname layering.
+
 ## Password-like Fields
 
 Password-like fields use Grav's field semantics automatically. Empty values for those fields mean:
@@ -150,9 +159,9 @@ The Admin overview supports two deferred actions:
 
 After clicking either action, the Admin page immediately updates the visible field statuses and source labels to preview the future result.
 
-Real file changes still happen only after the normal Admin `Save`.
+On Grav 1.7 (admin classic) the real file changes still happen only after the normal Admin `Save`. On Grav 2 (Admin Next) the overview actions apply immediately — the SPA has no deferred form-save to attach them to.
 
-After `Move to config` followed by `Save`:
+After `Move to config` followed by `Save` (Grav 1.7) or the `Return to config` action (Grav 2):
 
 - current values from the selected secrets file are written back into plugin config YAML
 - the corresponding entries are removed from `user/secrets.yaml` / `user/secrets.<env>.yaml`
@@ -166,12 +175,13 @@ Fully supported:
 - normal plugin config save flow
 - Flex configure flow, including `algolia-pro`
 
-The Admin page uses live preview for field state, but real file changes are still applied only after the normal Admin `Save`.
+The Admin page uses live preview for field state, but real file changes are still applied only after the normal Admin `Save` (Grav 1.7; on Grav 2 the overview actions apply immediately).
 
 ## Operational Notes
 
 - `debug_logging` enables verbose plugin-side logging for save, migrate, and Flex flows
 - environment-specific storage is used only when Grav resolves a non-empty environment name
+- secrets files are written with `0600` permissions; multi-file operations are serialized through `user/.secret-split.lock`
 
 ## Developer Notes
 

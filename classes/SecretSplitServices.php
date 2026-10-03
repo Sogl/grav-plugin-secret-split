@@ -37,6 +37,105 @@ final class SecretSplitServices
         private readonly Closure $collectBlueprintFieldOrder
     ) {}
 
+    /**
+     * Shared wiring — used by the plugin on Grav 1.7 and by the api
+     * controller on Grav 2, so both admin surfaces hit the same services.
+     * When no log callback is given, debug output follows the plugin's own
+     * `debug_logging` setting.
+     */
+    public static function create(Grav $grav, ?callable $logDebug = null): self
+    {
+        if ($logDebug === null) {
+            $logDebug = static function (string $message, array $context = []) use ($grav): void {
+                if (!(bool) $grav['config']->get('plugins.secret-split.debug_logging', false)) {
+                    return;
+                }
+                $logger = $grav['log'] ?? null;
+                if (is_object($logger)) {
+                    $logger->debug('[secret-split] ' . $message, $context);
+                }
+            };
+        }
+
+        $services = null;
+        $services = new self(
+            $grav,
+            USER_DIR,
+            $logDebug(...),
+            Closure::fromCallable([SecretSplitPlugin::class, 'getProtectedFieldCatalog']),
+            function (string $pluginSlug) use (&$services): array {
+                $pluginDir = USER_DIR . 'plugins/' . $pluginSlug;
+                if (!is_dir($pluginDir)) {
+                    return [];
+                }
+
+                $prefix = 'plugins.' . $pluginSlug . '.';
+
+                return array_values(array_map(
+                    static fn(string $fullKey): string => str_starts_with($fullKey, $prefix)
+                        ? substr($fullKey, strlen($prefix))
+                        : $fullKey,
+                    array_keys($services->catalogBuilder()->collectConfigFieldsForPlugin($pluginDir, $pluginSlug))
+                ));
+            }
+        );
+
+        return $services;
+    }
+
+    /**
+     * Which secrets file a freshly-extracted value lands in — same precedence
+     * the plugin uses on Grav 1.7 saves: env override, then env's own file if
+     * the key already lives there, then base, defaulting to env when the key
+     * is new.
+     */
+    public function resolveStorageTarget(
+        string $fullKey,
+        array $baseSecrets,
+        array $envSecrets,
+        bool $hasEnvStorage,
+        string $preferredScope = ''
+    ): string {
+        if ($preferredScope === 'base') {
+            return 'base';
+        }
+
+        if ($preferredScope === 'env') {
+            return $this->paths()->getEnvironmentStoragePath() !== '' ? 'env' : 'base';
+        }
+
+        if (!$hasEnvStorage) {
+            return 'base';
+        }
+
+        if ($this->yamlHelper()->hasByDotPath($envSecrets, $fullKey)) {
+            return 'env';
+        }
+
+        if ($this->yamlHelper()->hasByDotPath($baseSecrets, $fullKey)) {
+            return 'base';
+        }
+
+        return 'env';
+    }
+
+    /**
+     * Apply the admin-next environment selection (X-Config-Environment /
+     * X-Grav-Environment headers) to the path resolver so state, extraction
+     * and migrate/return operate on the scope the operator picked. Without a
+     * header the booted environment stands — Grav 1.7 admin, front-end and
+     * CLI requests are unaffected. Pass the dispatched request when one is
+     * available (api controller); the plugin entry points use the shared
+     * `request` service, which carries the same client headers.
+     */
+    public function applyRequestEnvironment(?object $request = null): void
+    {
+        $override = $this->adminFlow()->getRequestEnvironmentOverride($request);
+        if ($override !== null) {
+            $this->paths()->setEnvironmentOverride($override);
+        }
+    }
+
     public function yamlHelper(): SecretSplitYamlHelper
     {
         if ($this->yamlHelper === null) {

@@ -2,7 +2,7 @@
     "name": "sogl/secret-split",
     "type": "grav-plugin",
     "description": "Store selected plugin secrets outside tracked YAML config",
-    "version": "1.0.2",
+    "version": "1.1.0",
     "keywords": [
         "grav",
         "plugin",
@@ -29,6 +29,6 @@
         }
     },
     "require": {
-        "php": ">=8.0"
+        "php": ">=8.1"
     }
 }

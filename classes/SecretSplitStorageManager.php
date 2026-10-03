@@ -197,6 +197,14 @@ final class SecretSplitStorageManager
     }
 
     /**
+     * Serializes multi-file read-modify-write mutations (flock, best effort).
+     */
+    public function withStorageLock(string $anchorPath, callable $fn): mixed
+    {
+        return $this->yaml->withStorageLock($anchorPath, $fn);
+    }
+
+    /**
      * @return array<string,mixed>
      */
     public function loadYamlLayer(string $path): array

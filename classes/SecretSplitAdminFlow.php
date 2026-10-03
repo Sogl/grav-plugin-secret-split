@@ -12,6 +12,8 @@ final class SecretSplitAdminFlow
     /** @var callable */
     private $logDebug;
 
+    private ?array $jsonBody = null;
+
     public function __construct(
         private readonly Grav $grav,
         private readonly string $userDir,
@@ -77,12 +79,117 @@ final class SecretSplitAdminFlow
         $request = $this->grav['request'] ?? null;
         if (is_object($request) && method_exists($request, 'getParsedBody')) {
             $body = $request->getParsedBody();
-            if (is_array($body)) {
+            if (is_array($body) && $body !== []) {
                 return $body;
             }
         }
 
-        return is_array($_POST) ? $_POST : [];
+        if (is_array($_POST) && $_POST !== []) {
+            return $_POST;
+        }
+
+        // Grav 2 api plugin requests carry a JSON body — getParsedBody() leaves
+        // it as the raw stream. Decode php://input so submitted-data detection
+        // (cleared-field semantics) keeps working on admin2 saves.
+        if ($this->jsonBody === null) {
+            $raw = file_get_contents('php://input');
+            $this->jsonBody = self::decodeJsonRequestBody(is_string($raw) ? $raw : '');
+        }
+
+        return $this->jsonBody;
+    }
+
+    /**
+     * Admin Next replays the operator's environment selection on every api
+     * call via X-Config-Environment; ApiRouter::applyEnvironment() cannot
+     * re-setup an already-booted container, so the selected scope is applied
+     * to the path resolver instead. Mirrors ConfigController: header absent
+     * -> null (keep the booted environment, i.e. classic admin / front-end /
+     * CLI behavior); an empty or reserved value ('default'/'base') -> ''
+     * (explicit base-only view); anything else -> the validated environment
+     * name.
+     */
+    public function getRequestEnvironmentOverride(?object $request = null): ?string
+    {
+        $request = $request ?? ($this->grav['request'] ?? null);
+        if (!is_object($request) || !method_exists($request, 'getHeaderLine')) {
+            return null;
+        }
+
+        // Only X-Config-Environment selects the configuration scope — the
+        // api plugin deliberately keeps it distinct from X-Grav-Environment,
+        // which names the runtime env and must not silently pick our scope.
+        $hasConfigHeader = method_exists($request, 'hasHeader')
+            ? $request->hasHeader('X-Config-Environment')
+            : trim((string) $request->getHeaderLine('X-Config-Environment')) !== '';
+        if (!$hasConfigHeader) {
+            return null;
+        }
+
+        $name = trim((string) $request->getHeaderLine('X-Config-Environment'));
+
+        if ($name === '' || in_array(strtolower($name), ['default', 'base'], true)) {
+            return '';
+        }
+
+        if (!preg_match('/^[a-zA-Z0-9][a-zA-Z0-9._-]*$/', $name)) {
+            ($this->logDebug)('request environment header rejected', ['environment' => $name]);
+
+            return null;
+        }
+
+        return $name;
+    }
+
+    /**
+     * Grav 2 api plugin requests carry X-API-Token (or Authorization: Bearer).
+     * They are the only requests where a config form is built from on-disk
+     * YAML rather than the overlaid runtime config, so extraction semantics
+     * must treat round-tripped empty/default values differently (a stored
+     * secret must not be deleted by an echo of a form that never showed it).
+     */
+    public function isApiRequest(?object $request = null): bool
+    {
+        $request = $request ?? ($this->grav['request'] ?? null);
+        if (!is_object($request) || !method_exists($request, 'getHeaderLine')) {
+            return false;
+        }
+
+        if (trim((string) $request->getHeaderLine('X-API-Token')) !== '') {
+            return true;
+        }
+
+        if (stripos((string) $request->getHeaderLine('Authorization'), 'Bearer ') === 0) {
+            return true;
+        }
+
+        // Session-authenticated admin2 requests carry no token headers — but
+        // the api plugin owns its route prefix, so the path identifies them.
+        $uri = method_exists($request, 'getUri') ? $request->getUri() : null;
+        $path = is_object($uri) && method_exists($uri, 'getPath') ? (string) $uri->getPath() : '';
+        if ($path === '') {
+            return false;
+        }
+        $config = $this->grav['config'] ?? null;
+        $base = trim((string) ($config ? $config->get('plugins.api.route', '/api') : '/api'), '/');
+        $prefix = trim((string) ($config ? $config->get('plugins.api.version_prefix', 'v1') : 'v1'), '/');
+        $root = '/' . $base . ($prefix !== '' ? '/' . $prefix : '');
+
+        return $path === $root || str_starts_with($path, $root . '/');
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public static function decodeJsonRequestBody(string $raw): array
+    {
+        if ($raw === '') {
+            return [];
+        }
+
+        $decoded = json_decode($raw, true);
+
+        return is_array($decoded) ? $decoded : [];
     }
 
     public function isAsyncSecretSplitTaskRequest(): bool
@@ -117,7 +224,9 @@ final class SecretSplitAdminFlow
     public function getSubmittedPluginDataFromRequest(): array
     {
         $post = $this->getAdminRequestBody();
-        $data = $post['data'] ?? [];
+        // Admin1 wraps values in `data`; the Grav 2 api PATCH body IS the
+        // config map — no envelope, so fall back to the body itself.
+        $data = $post['data'] ?? (is_array($_POST) && $_POST !== [] ? [] : $post);
 
         if (is_string($data)) {
             $decoded = json_decode($data, true);
@@ -149,20 +258,90 @@ final class SecretSplitAdminFlow
         callable $getEnvironmentStoragePath,
         callable $updateRuntimeConfig
     ): void {
-        $currentConfig = $this->getSubmittedPluginDataFromRequest();
-        $configPath = $this->getSecretSplitConfigPath();
-        $previousConfig = $this->loadYamlFile($configPath);
-        $currentConfig = $this->preserveLegacyPasswordFlags($currentConfig, $previousConfig);
+        $this->yaml->withStorageLock($getBaseStoragePath(), function () use (
+            $getBaseStoragePath,
+            $getEnvironmentStoragePath,
+            $updateRuntimeConfig
+        ): void {
+            $currentConfig = $this->getSubmittedPluginDataFromRequest();
+            $configPath = $this->getSecretSplitConfigPath();
+            $previousConfig = $this->loadYamlFile($configPath);
+            $currentConfig = $this->preserveLegacyPasswordFlags($currentConfig, $previousConfig);
 
-        $this->deleteSecretsForRemovedDefinitions(
-            $this->getProtectedDefinitionsFromConfigArray($previousConfig),
-            $this->getProtectedDefinitionsFromConfigArray($currentConfig),
-            $getBaseStoragePath(),
-            $getEnvironmentStoragePath()
-        );
+            $this->doDeleteSecretsForRemovedDefinitions(
+                $this->getProtectedDefinitionsFromConfigArray($previousConfig),
+                $this->getProtectedDefinitionsFromConfigArray($currentConfig),
+                $getBaseStoragePath(),
+                $getEnvironmentStoragePath()
+            );
 
-        $this->saveYamlFile($configPath, $currentConfig);
-        $updateRuntimeConfig($currentConfig);
+            $this->saveYamlFile($configPath, $currentConfig);
+            $updateRuntimeConfig($currentConfig);
+        });
+    }
+
+    /**
+     * Grav 2 api path: replace `protected_fields` inside the persisted plugin
+     * config — same semantics as persistSecretSplitConfigFromRequest(), but
+     * driven by decoded data rather than a form request.
+     *
+     * @param array<int,mixed> $protectedFields
+     * @param callable():string $getBaseStoragePath
+     * @param callable():string $getEnvironmentStoragePath
+     * @param callable(array<string,mixed>):void $updateRuntimeConfig
+     */
+    public function persistSecretSplitProtectedFields(
+        array $protectedFields,
+        callable $getBaseStoragePath,
+        callable $getEnvironmentStoragePath,
+        callable $updateRuntimeConfig
+    ): void {
+        $this->yaml->withStorageLock($getBaseStoragePath(), function () use (
+            $protectedFields,
+            $getBaseStoragePath,
+            $getEnvironmentStoragePath,
+            $updateRuntimeConfig
+        ): void {
+            $configPath = $this->context->getScopedPluginConfigPath();
+            $previousConfig = $this->context->getScopedPluginConfig();
+            $currentConfig = $previousConfig;
+            $currentConfig['protected_fields'] = $protectedFields;
+            $currentConfig = $this->preserveLegacyPasswordFlags($currentConfig, $previousConfig);
+
+            if (!$this->context->isEnvironmentScopedConfigTarget()) {
+                $this->doDeleteSecretsForRemovedDefinitions(
+                    $this->getProtectedDefinitionsFromConfigArray($previousConfig),
+                    $this->getProtectedDefinitionsFromConfigArray($currentConfig),
+                    $getBaseStoragePath(),
+                    $getEnvironmentStoragePath()
+                );
+            } else {
+                // Under an env scope, removing a field here must not delete
+                // secrets that other scopes still rely on — the value stays
+                // inert in its secrets file instead.
+                $this->logDebug('env-scope unprotect keeps stored secrets', ['path' => $configPath]);
+            }
+
+            // Env-scope writes persist only the delta against the parent
+            // config: an unchanged protected_fields list is removed from the
+            // env layer so it keeps inheriting; a different list is written
+            // atomically — never the merged effective view.
+            if ($this->context->isEnvironmentScopedConfigTarget()) {
+                $fileData = $this->context->getScopedPluginConfigRaw();
+                $parentFields = $this->context->getBasePluginConfig()['protected_fields'] ?? [];
+                $desiredFields = $currentConfig['protected_fields'] ?? [];
+                if ($desiredFields === $parentFields) {
+                    unset($fileData['protected_fields']);
+                } else {
+                    $fileData['protected_fields'] = $desiredFields;
+                }
+            } else {
+                $fileData = $currentConfig;
+            }
+
+            $this->saveYamlFile($configPath, $fileData);
+            $updateRuntimeConfig($currentConfig);
+        });
     }
 
     /**
@@ -241,6 +420,24 @@ final class SecretSplitAdminFlow
      * @param array<int,array{full_key:string,password:bool}> $currentDefinitions
      */
     public function deleteSecretsForRemovedDefinitions(
+        array $previousDefinitions,
+        array $currentDefinitions,
+        string $basePath,
+        string $envPath
+    ): void {
+        $this->yaml->withStorageLock($basePath, fn() => $this->doDeleteSecretsForRemovedDefinitions(
+            $previousDefinitions,
+            $currentDefinitions,
+            $basePath,
+            $envPath
+        ));
+    }
+
+    /**
+     * Callers that already hold the storage lock (persist* methods) must use
+     * this directly — flock is not recursive across handles.
+     */
+    private function doDeleteSecretsForRemovedDefinitions(
         array $previousDefinitions,
         array $currentDefinitions,
         string $basePath,

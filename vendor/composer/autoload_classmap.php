@@ -7,16 +7,4 @@ $baseDir = dirname($vendorDir);
 
 return array(
     'Composer\\InstalledVersions' => $vendorDir . '/composer/InstalledVersions.php',
-    'Grav\\Plugin\\SecretSplitAdminFlow' => $baseDir . '/classes/SecretSplitAdminFlow.php',
-    'Grav\\Plugin\\SecretSplitApplicationService' => $baseDir . '/classes/SecretSplitApplicationService.php',
-    'Grav\\Plugin\\SecretSplitCatalogBuilder' => $baseDir . '/classes/SecretSplitCatalogBuilder.php',
-    'Grav\\Plugin\\SecretSplitContext' => $baseDir . '/classes/SecretSplitContext.php',
-    'Grav\\Plugin\\SecretSplitI18n' => $baseDir . '/classes/SecretSplitI18n.php',
-    'Grav\\Plugin\\SecretSplitMutationService' => $baseDir . '/classes/SecretSplitMutationService.php',
-    'Grav\\Plugin\\SecretSplitPathResolver' => $baseDir . '/classes/SecretSplitPathResolver.php',
-    'Grav\\Plugin\\SecretSplitServices' => $baseDir . '/classes/SecretSplitServices.php',
-    'Grav\\Plugin\\SecretSplitStateManager' => $baseDir . '/classes/SecretSplitStateManager.php',
-    'Grav\\Plugin\\SecretSplitStorageManager' => $baseDir . '/classes/SecretSplitStorageManager.php',
-    'Grav\\Plugin\\SecretSplitYamlHelper' => $baseDir . '/classes/SecretSplitYamlHelper.php',
-    'Grav\\Plugin\\SecretSplitYamlTrait' => $baseDir . '/classes/SecretSplitYamlTrait.php',
 );

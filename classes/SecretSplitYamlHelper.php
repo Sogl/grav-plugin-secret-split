@@ -19,5 +19,6 @@ final class SecretSplitYamlHelper
         buildOrderMapFromPaths as public;
         reorderConfigByOrderMap as public;
         pruneEmptyArrays as public;
+        withStorageLock as public;
     }
 }

@@ -10,3 +10,6 @@ Thumbs.db
 
 # PHPUnit
 .phpunit.result.cache
+
+# Test artifacts
+.playwright-cli/

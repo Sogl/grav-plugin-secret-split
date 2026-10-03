@@ -6,7 +6,12 @@ It collects the current Grav/Admin/Flex integration constraints, local workaroun
 
 ## Scope
 
-`secret-split` extends Grav Admin in places where the default model is still:
+`secret-split` supports two admin generations from one codebase:
+
+- **Admin Classic (Grav 1.7)** — the classic model below still applies.
+- **Admin Next (Grav 2)** — a different integration surface; see its own section.
+
+On Admin Classic the default model is still:
 
 - edit form
 - dirty state
@@ -22,7 +27,7 @@ The plugin adds:
 
 That means some glue code is currently needed around Admin and Flex internals.
 
-## Current Admin Model
+## Current Admin Model (Grav 1.7, Admin Classic)
 
 Current `secret-split` behavior is intentionally:
 
@@ -42,7 +47,70 @@ The pending action is kept client-side in a hidden form field:
 
 No temporary server-side draft storage is used.
 
+## Admin Next (Grav 2)
+
+Admin Next has none of the classic machinery — no `Save` round-trip, no
+dirty-state modal, no `selectunique`. The deferred-action model does not
+exist there; the equivalent integration surface is different:
+
+- **Custom field types** via `onApiRegisterFieldTypes`, shipped under
+  `admin-next/fields/`:
+  - `secret-split-field` — field select filtered by the row's plugin plus a
+    live status chip, used for `protected_fields[].fields[].field_key`.
+  - `secret-split-overview` — status tiles (Stored/Pending/Duplicated/
+    Missing) plus the `Move to secrets` / `Move to config` actions, injected
+    into the settings form in place of the `overview` display field.
+- **API endpoints** via `onApiRegisterRoutes` (state, `migrate`, `return`),
+  served through the `api` plugin's auth (JWT/API key). Migrate/Return apply
+  **immediately** — there is no deferred form-save on Admin Next.
+- **Sidebar shortcut** via `onApiSidebarItems` linking to the plugin
+  settings form; gated by the `admin_sidebar_item` option.
+- **`/admin/plugin/secret-split`** is a blueprint-mode page bound to the
+  same data/save endpoints, kept as a URL-compatible alias of
+  `/admin/plugins/secret-split`.
+
+Environment scoping on Admin Next:
+
+- Only `X-Config-Environment` selects the Secret Split scope — the header
+  the admin env switcher sends for the chosen view. `X-Grav-Environment`
+  alone (the booted environment) is deliberately ignored so a read under the
+  wrong scope cannot happen.
+- `default`, `base` and empty values select the base view explicitly.
+- A named environment without `user/env/<name>/` consistently degrades to
+  base behavior — no scoped-config split-brain.
+
+Save semantics that differ from Admin Classic:
+
+- Request bodies are detected as either the admin1 `data` envelope or raw
+  JSON config maps (`isApiRequest` = `X-API-Token` / `Authorization: Bearer`
+  headers, or a request path under the api plugin's route prefix).
+- **Echo preservation**: the Admin Next form never renders stored secrets,
+  so a round-tripped empty/default/unchanged tracked value for a key that
+  has a stored secret is treated as a form echo — it is removed from the
+  tracked payload but the stored secret is left untouched. A genuinely new
+  value replaces the secret. (This is the inverse of the admin1 rule where
+  an explicit empty value deletes a stored secret.)
+- `protected_fields` writes under an env scope persist only the delta
+  against the base config file; a list equal to the parent is removed so
+  inheritance keeps working.
+
+Plugin-specific API controllers that bypass `onAdminSave`:
+
+- Some plugins ship their own api endpoints which write their config YAML
+  directly — e.g. Algolia Pro's `PATCH /api/v1/algolia-pro/data`
+  (`AlgoliaProApiController::save`). These never fire `onAdminSave`, so the
+  per-form extraction hook cannot see them.
+- Coverage is pipeline-agnostic: on any api request — detected by the api
+  plugin's route prefix (`plugins.api.route` + `version_prefix`, default
+  `/api/v1`) in addition to `X-API-Token`/`Authorization: Bearer` headers —
+  the plugin snapshots every protected plugin's tracked config and runs the
+  same post-save migration at shutdown. Whatever the endpoint wrote gets
+  scrubbed; unchanged files are left alone.
+
 ## Local Workarounds
+
+All items in this section apply to **Admin Classic (Grav 1.7)** — Admin Next
+does not share these widgets or the deferred-save model.
 
 ### Grav Admin `selectunique`
 
@@ -103,7 +171,9 @@ Relevant upstream improvement:
 - Request that led to it:
   - [trilbymedia/grav-plugin-flex-objects#194](https://github.com/trilbymedia/grav-plugin-flex-objects/issues/194)
 
-Once the target installation runs a Grav version with that event, the Flex-specific `secret-split` path can likely be simplified.
+The event exists in Grav 2.2.x core. The snapshot + shutdown path is still
+retained deliberately — one codebase must serve 1.7 too, where the event
+does not exist. It can only be simplified if Grav 1.7 support is dropped.
 
 ### Form nonce differences
 
@@ -135,7 +205,7 @@ If Admin gains such an API, `secret-split` should switch to it and drop its loca
 
 ## Practical Limits
 
-Current implementation is considered reliable for:
+For the Admin Classic (Grav 1.7) surface, current implementation is considered reliable for:
 
 - normal plugin config forms
 - supported Flex configure forms

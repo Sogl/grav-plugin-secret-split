@@ -1,7 +1,7 @@
 name: Secret Split
 slug: secret-split
 type: plugin
-version: 1.0.2
+version: 1.1.0
 testing: false
 icon: lock
 description: Store selected plugin secrets outside config YAML files
@@ -13,6 +13,14 @@ homepage: https://github.com/Sogl/grav-plugin-secret-split
 keywords: plugin, secrets, config, security
 bugs: https://github.com/Sogl/grav-plugin-secret-split/issues
 license: MIT
+compatibility:
+  grav:
+    - '1.7'
+    - '2.0'
+
+dependencies:
+  - { name: grav, version: '>=1.7.0' }
+
 form:
   validation: loose
   fields:
@@ -49,6 +57,18 @@ form:
       label: PLUGIN_SECRET_SPLIT.ENVIRONMENT_STORAGE_PATTERN
       default: user://secrets.%s.yaml
 
+    admin_sidebar_item:
+      type: toggle
+      label: PLUGIN_SECRET_SPLIT.ADMIN_SIDEBAR_ITEM
+      help: PLUGIN_SECRET_SPLIT.ADMIN_SIDEBAR_ITEM_HELP
+      highlight: 0
+      default: 1
+      options:
+        1: PLUGIN_ADMIN.ENABLED
+        0: PLUGIN_ADMIN.DISABLED
+      validate:
+        type: bool
+
     overview:
       type: display
       style: vertical
@@ -74,7 +94,10 @@ form:
           selectunique@: '\Grav\Plugin\SecretSplitPlugin::getProtectedFieldOptions'
           fields:
             .field_key:
-              type: selectunique
+              # `select`, not `selectunique`: admin2 has no selectunique field
+              # type — it falls back to a raw textarea. Plain select keeps the
+              # data-options@ dropdown on both admin generations.
+              type: select
               label: PLUGIN_SECRET_SPLIT.FIELD
               size: large
               classes: secret-split-field-select

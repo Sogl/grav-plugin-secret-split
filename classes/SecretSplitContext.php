@@ -43,6 +43,43 @@ final class SecretSplitContext
         return $this->paths->resolveUserStoragePath($path);
     }
 
+    public function getScopedPluginConfigPath(): string
+    {
+        return $this->paths->getScopedPluginConfigPath();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function getScopedPluginConfig(): array
+    {
+        return $this->paths->getScopedPluginConfig();
+    }
+
+    /**
+     * Raw write-target file for the selected scope (env layer only, not the
+     * merged view) — scoped writes must persist deltas, not effective values.
+     *
+     * @return array<string,mixed>
+     */
+    public function getScopedPluginConfigRaw(): array
+    {
+        return $this->paths->getScopedPluginConfigRaw();
+    }
+
+    public function isEnvironmentScopedConfigTarget(): bool
+    {
+        return $this->paths->isEnvironmentScopedConfigTarget();
+    }
+
+    /**
+     * @return array<string,mixed>
+     */
+    public function getBasePluginConfig(): array
+    {
+        return $this->paths->getBasePluginConfig();
+    }
+
     /**
      * @return array<int,array{full_key:string,password:bool}>
      */
@@ -174,5 +211,19 @@ final class SecretSplitContext
         $catalog = ($this->getProtectedFieldCatalog)();
 
         return in_array($fullKey, $catalog['passwordFields'] ?? [], true);
+    }
+
+    /**
+     * @return array{has:bool,value:mixed}
+     */
+    public function getCatalogFieldDefaultInfo(string $fullKey): array
+    {
+        $catalog = ($this->getProtectedFieldCatalog)();
+
+        if (!array_key_exists($fullKey, $catalog['defaults'] ?? [])) {
+            return ['has' => false, 'value' => null];
+        }
+
+        return ['has' => true, 'value' => $catalog['defaults'][$fullKey]];
     }
 }

@@ -6,6 +6,8 @@ en:
     DISABLED_OPTION: Disabled
     DEBUG_LOGGING: Debug logging
     DEBUG_LOGGING_HELP: Write Secret Split debug entries into the Grav log.
+    ADMIN_SIDEBAR_ITEM: Sidebar menu entry
+    ADMIN_SIDEBAR_ITEM_HELP: Show a Secret Split shortcut in the left admin sidebar, linking to this settings page.
     BASE_STORAGE_FILE: Base storage file
     ENVIRONMENT_STORAGE_PATTERN: Environment storage pattern
     PROTECTED_PLUGINS: Protected plugins
@@ -36,9 +38,9 @@ en:
       DUPLICATE: Duplicated
       MISSING: Missing
       MIGRATE_TO_FILE: Move to %file%
-      NOTE_TO_FILE: Pending and duplicate values will be moved into %file% and removed from config YAML after you save this form.
+      NOTE_TO_FILE: Pending and duplicate values will be moved into %file% and removed from config YAML.
       RETURN_TO_CONFIG: Move to config
-      RETURN_NOTE_FROM_FILE: Current values from %file% will be written back into config YAML and removed from %file% after you save this form.
+      RETURN_NOTE_FROM_FILE: Current values from %file% will be written back into config YAML and removed from %file%.
       SAVE_FIRST_NOTE: Save this form to apply the selected migrate or return action.
     MESSAGES:
       INVALID_TOKEN: Invalid security token.
@@ -46,6 +48,46 @@ en:
       RETURNED: "Secret Split moved %returned% stored values back into config."
       ACTION_FAILED: "Secret Split action failed: %error%."
       DUPLICATE_SUFFIX: " and %normalized% duplicated fields"
+    PAGE:
+      TITLE: Secret Split
+      SUBTITLE: Protected fields and where their secrets currently live
+      LOADING: Loading…
+      SAVED: Saved
+      NO_FIELDS: No fields
+      MIGRATE_CONFIRM: Move pending and duplicated values into the secrets file?
+      RETURN_CONFIRM: Write secrets back into config YAML files and remove them from the secrets file?
+      EMPTY_OVERVIEW: No protected fields yet — pick a plugin below and tick what should leave the config files.
+      PICK_PLUGIN: Protect fields
+      CHOOSE_PLUGIN: Choose a plugin…
+  ICU:
+    PLUGIN_SECRET_SPLIT:
+      DESCRIPTION: Store selected plugin secrets outside config YAML files
+      ENABLED: Enabled
+      ENABLED_OPTION: Enabled
+      DISABLED_OPTION: Disabled
+      DEBUG_LOGGING: Debug logging
+      DEBUG_LOGGING_HELP: Write Secret Split debug entries into the Grav log.
+      ADMIN_SIDEBAR_ITEM: Sidebar menu entry
+      ADMIN_SIDEBAR_ITEM_HELP: Show a Secret Split shortcut in the left admin sidebar, linking to this settings page.
+      BASE_STORAGE_FILE: Base storage file
+      ENVIRONMENT_STORAGE_PATTERN: Environment storage pattern
+      PROTECTED_PLUGINS: Protected plugins
+      ADD_PLUGIN: Add plugin
+      PLUGIN: Plugin
+      PROTECTED_FIELDS: Protected fields
+      ADD_FIELD: Add field
+      FIELD: Field
+      PAGE:
+        TITLE: Secret Split
+        SUBTITLE: Protected fields and where their secrets currently live
+        LOADING: Loading…
+        SAVED: Saved
+        NO_FIELDS: No fields
+        MIGRATE_CONFIRM: Move pending and duplicated values into the secrets file?
+        RETURN_CONFIRM: Write secrets back into config YAML files and remove them from the secrets file?
+        EMPTY_OVERVIEW: No protected fields yet — pick a plugin below and tick what should leave the config files.
+        PICK_PLUGIN: Protect fields
+        CHOOSE_PLUGIN: Choose a plugin…
 
 ru:
   PLUGIN_SECRET_SPLIT:
@@ -55,6 +97,8 @@ ru:
     DISABLED_OPTION: Выключено
     DEBUG_LOGGING: Отладочное логирование
     DEBUG_LOGGING_HELP: Записывать отладочные сообщения Secret Split в лог Grav.
+    ADMIN_SIDEBAR_ITEM: Пункт в боковом меню
+    ADMIN_SIDEBAR_ITEM_HELP: Показывать ярлык Secret Split в левом меню админки, ведущий на эту страницу настроек.
     BASE_STORAGE_FILE: Базовый файл секретов
     ENVIRONMENT_STORAGE_PATTERN: Шаблон env-файла секретов
     PROTECTED_PLUGINS: Защищаемые плагины
@@ -85,9 +129,9 @@ ru:
       DUPLICATE: Дублируется
       MISSING: Не задано
       MIGRATE_TO_FILE: Перенести в %file%
-      NOTE_TO_FILE: Значения со статусами «Ожидает» и «Дублируется» будут перенесены в %file% и удалены из config YAML после сохранения формы.
+      NOTE_TO_FILE: Значения со статусами «Ожидает» и «Дублируется» будут перенесены в %file% и удалены из config YAML.
       RETURN_TO_CONFIG: Перенести в config
-      RETURN_NOTE_FROM_FILE: Текущие значения из %file% будут записаны обратно в config YAML и удалены из %file% после сохранения формы.
+      RETURN_NOTE_FROM_FILE: Текущие значения из %file% будут записаны обратно в config YAML и удалены из %file%.
       SAVE_FIRST_NOTE: Сохраните форму, чтобы применить выбранную миграцию или возврат.
     MESSAGES:
       INVALID_TOKEN: Неверный токен безопасности.
@@ -95,3 +139,43 @@ ru:
       RETURNED: "Secret Split перенес %returned% сохраненных значений обратно в config."
       ACTION_FAILED: "Ошибка Secret Split: %error%."
       DUPLICATE_SUFFIX: " и %normalized% дублирующихся"
+    PAGE:
+      TITLE: Secret Split
+      SUBTITLE: Защищённые поля и где сейчас лежат их секреты
+      LOADING: Загрузка…
+      SAVED: Сохранено
+      NO_FIELDS: Нет полей
+      MIGRATE_CONFIRM: Перенести ожидающие и дублирующиеся значения в secrets-файл?
+      RETURN_CONFIRM: Записать секреты обратно в config YAML и удалить их из secrets-файла?
+      EMPTY_OVERVIEW: Защищённых полей пока нет — выберите плагин ниже и отметьте, что должно уйти из конфигов.
+      PICK_PLUGIN: Защитить поля
+      CHOOSE_PLUGIN: Выберите плагин…
+  ICU:
+    PLUGIN_SECRET_SPLIT:
+      DESCRIPTION: Хранит выбранные секреты плагинов вне config YAML-файлов
+      ENABLED: Включен
+      ENABLED_OPTION: Включено
+      DISABLED_OPTION: Выключено
+      DEBUG_LOGGING: Отладочное логирование
+      DEBUG_LOGGING_HELP: Записывать отладочные сообщения Secret Split в лог Grav.
+      ADMIN_SIDEBAR_ITEM: Пункт в боковом меню
+      ADMIN_SIDEBAR_ITEM_HELP: Показывать ярлык Secret Split в левом меню админки, ведущий на эту страницу настроек.
+      BASE_STORAGE_FILE: Базовый файл секретов
+      ENVIRONMENT_STORAGE_PATTERN: Шаблон env-файла секретов
+      PROTECTED_PLUGINS: Защищаемые плагины
+      ADD_PLUGIN: Добавить плагин
+      PLUGIN: Плагин
+      PROTECTED_FIELDS: Защищаемые поля
+      ADD_FIELD: Добавить поле
+      FIELD: Поле
+      PAGE:
+        TITLE: Secret Split
+        SUBTITLE: Защищённые поля и где сейчас лежат их секреты
+        LOADING: Загрузка…
+        SAVED: Сохранено
+        NO_FIELDS: Нет полей
+        MIGRATE_CONFIRM: Перенести ожидающие и дублирующиеся значения в secrets-файл?
+        RETURN_CONFIRM: Записать секреты обратно в config YAML и удалить их из secrets-файла?
+        EMPTY_OVERVIEW: Защищённых полей пока нет — выберите плагин ниже и отметьте, что должно уйти из конфигов.
+        PICK_PLUGIN: Защитить поля
+        CHOOSE_PLUGIN: Выберите плагин…
