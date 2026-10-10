@@ -1,7 +1,7 @@
 name: Secret Split
 slug: secret-split
 type: plugin
-version: 1.1.0
+version: 1.1.1
 testing: false
 icon: lock
 description: Store selected plugin secrets outside config YAML files
@@ -94,10 +94,7 @@ form:
           selectunique@: '\Grav\Plugin\SecretSplitPlugin::getProtectedFieldOptions'
           fields:
             .field_key:
-              # `select`, not `selectunique`: admin2 has no selectunique field
-              # type — it falls back to a raw textarea. Plain select keeps the
-              # data-options@ dropdown on both admin generations.
-              type: select
+              type: selectunique
               label: PLUGIN_SECRET_SPLIT.FIELD
               size: large
               classes: secret-split-field-select

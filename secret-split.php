@@ -131,7 +131,7 @@ class SecretSplitPlugin extends Plugin
             if (!is_array($field)) {
                 continue;
             }
-            if (($field['type'] ?? '') === 'select'
+            if (in_array($field['type'] ?? '', ['select', 'selectunique'], true)
                 && str_contains((string) ($field['classes'] ?? ''), 'secret-split-field-select')
             ) {
                 $field['type'] = 'secret-split-field';

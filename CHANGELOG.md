@@ -1,3 +1,15 @@
+# v1.1.1
+## 10/11/2026
+
+1. [](#improved)
+    * Admin Next 2.1.29+: `.field_key` reads the parent row's `.plugin`
+      through the official `getValue()`/`watch`/`formChanged()` contract
+      instead of walking the DOM (getgrav/grav-admin-next#29); the DOM
+      discovery stays as a fallback for older builds
+    * `.field_key` is `selectunique` again now that Admin Next renders the
+      type natively (getgrav/grav-admin-next#30) — admin1 gets back free
+      input for custom field paths
+
 # v1.1.0
 ## 10/03/2026
 

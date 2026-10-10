@@ -3,14 +3,18 @@ const TAG = window.__GRAV_FIELD_TAG;
 /**
  * Secret Split field select — the admin-next counterpart of the admin1
  * `secret-split-field-select` JS. Blueprint options carry every plugin's
- * `plugins.<slug>.*` keys; this component finds the sibling `.plugin` select
- * in the same protected_fields list row and narrows options to that plugin,
+ * `plugins.<slug>.*` keys; this component reads the `.plugin` field of the
+ * enclosing protected_fields list row and narrows options to that plugin,
  * re-filtering whenever the plugin choice changes.
  *
- * Plugin-select discovery walks ancestors until a <select> whose options are
- * NOT `plugins.*` keys turns up — in this blueprint the only such select is
- * the row's `.plugin` field. That is the same DOM trick the admin1 script
- * used, expressed inside the field itself.
+ * The chosen plugin is read through the injected `getValue(path)` accessor:
+ * admin-next 2.1.29+ delegates paths the row can't answer to the outer scope,
+ * so the parent row's `.plugin` resolves from inside this nested `.fields`
+ * list row (getgrav/grav-admin-next#29), and `watch` + `formChanged()`
+ * re-filters options when the choice changes. On older builds the same DOM
+ * trick the admin1 script used stays as fallback: walk ancestors to a
+ * <select> whose options are NOT `plugins.*` keys — in this blueprint the
+ * only such select is the parent row's `.plugin` field.
  *
  * Under the select the component renders the admin1-style status block:
  * caption + colored status pill + source line, driven by the field facts
@@ -107,6 +111,31 @@ class SecretSplitField extends HTMLElement {
     }
     get value() { return this._value; }
 
+    // Blueprint path of the parent row's `.plugin` field — our own name is
+    // `<outer>.fields.field_key`, the plugin lives at `<outer>.plugin`.
+    _pluginPath() {
+        const parts = (this._field?.name || '').split('.');
+        return parts.length > 2 ? parts.slice(0, -2).concat('plugin').join('.') : '';
+    }
+
+    // The wrapper watches these paths and calls formChanged() on change; a
+    // dotted path resolves through getValue's scope delegation (2.1.29+).
+    get watch() {
+        const p = this._pluginPath();
+        return p ? [p] : [];
+    }
+
+    formChanged() { this._render(); }
+
+    _pluginSlug() {
+        const p = this._pluginPath();
+        const viaApi = p ? this.getValue?.(p) : undefined;
+        if (typeof viaApi === 'string' && viaApi !== '') {
+            return viaApi;
+        }
+        return this._plugSel?.value || '';
+    }
+
     connectedCallback() {
         this._render();
         // The sibling .plugin select may render after us — retry briefly.
@@ -183,7 +212,7 @@ class SecretSplitField extends HTMLElement {
             this.appendChild(this._statusEl);
         }
 
-        const slug = this._plugSel?.value || '';
+        const slug = this._pluginSlug();
         const all = this._optionsAll();
         const opts = slug ? all.filter(o => o.value.startsWith('plugins.' + slug + '.')) : all;
         const cur = this._value || '';
