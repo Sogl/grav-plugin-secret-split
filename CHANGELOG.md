@@ -1,3 +1,13 @@
+# v1.1.2
+## 10/12/2026
+
+1. [](#improved)
+    * Storage lock files moved out of versioned dirs into the plugin's own
+      runtime area `user-data://secret-split/` (keyed per storage dir, so env
+      scopes still serialize independently) — no more stray `.secret-split.lock`
+      next to `secrets.yaml` showing up in `git status`. Anchors outside
+      `user/` keep the adjacent lock file as before.
+
 # v1.1.1
 ## 10/11/2026
 

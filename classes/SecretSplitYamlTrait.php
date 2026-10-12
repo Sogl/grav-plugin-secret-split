@@ -72,8 +72,23 @@ trait SecretSplitYamlTrait
     {
         $handle = null;
         $directory = $anchorPath !== '' ? dirname($anchorPath) : '';
-        if ($directory !== '' && is_dir($directory)) {
-            $candidate = @fopen($directory . '/.secret-split.lock', 'c');
+        if ($directory !== '') {
+            // Locks live under the plugin's own runtime dir `user-data://secret-split/`
+            // (gitignored via data/*), like core scheduler keeps `.lock` inside
+            // user-data://scheduler/queue — no stray files in versioned dirs.
+            // Keyed by anchor dir so env scopes serialize independently; anchors
+            // outside user/ keep the legacy lock beside the file.
+            if (preg_match('#^(.+[/\\\\]user)(?:[/\\\\]|$)#', $directory, $m)) {
+                $lockDir = $this->userDataDir($m[1]) . '/secret-split';
+                $lockFile = $lockDir . '/' . substr(md5($directory), 0, 12) . '.lock';
+            } else {
+                $lockDir = $directory;
+                $lockFile = $directory . '/.secret-split.lock';
+            }
+            if (!is_dir($lockDir)) {
+                @mkdir($lockDir, 0775, true);
+            }
+            $candidate = @fopen($lockFile, 'c');
             if (is_resource($candidate)) {
                 if (flock($candidate, LOCK_EX)) {
                     $handle = $candidate;
@@ -91,6 +106,25 @@ trait SecretSplitYamlTrait
                 fclose($handle);
             }
         }
+    }
+
+    /**
+     * Runtime data dir for locks. Prefers the `user-data://` stream (sites may
+     * remap it in setup.yaml); falls back to `<user>/data` for standard layouts
+     * and non-booted contexts like tests.
+     */
+    private function userDataDir(string $userRoot): string
+    {
+        try {
+            $locator = \Grav\Common\Grav::instance()['locator'] ?? null;
+            $resolved = $locator ? $locator->findResource('user-data://', true, true) : null;
+            if (is_string($resolved) && $resolved !== '') {
+                return rtrim($resolved, '/\\');
+            }
+        } catch (\Throwable $e) {
+        }
+
+        return $userRoot . '/data';
     }
 
     private function hasByDotPath(array $data, string $path): bool
